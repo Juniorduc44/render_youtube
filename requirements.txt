@@ -1,0 +1,5 @@
+Flask==2.3.3
+openai==1.35.3
+yt-dlp==2023.12.30
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.111.0
