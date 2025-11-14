@@ -161,35 +161,45 @@ def run_bot():
                     post_comment(vid, summary)
                 time.sleep(30)
         time.sleep(CHECK_INTERVAL)
+
+# === MANUAL POST ENDPOINT (MUST BE OUTSIDE run_bot!) ===
 @app.route('/post-now', methods=['POST'])
 def post_now():
     try:
-        data = request.get_json()  # Safe JSON parse
-        video_url = data.get('url')
-        if not video_url or 'youtube.com' not in video_url:
-            return jsonify({"error": "Invalid URL"}), 400
-        
-        video_id = video_url.split('v=')[1].split('&')[0]
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({"error": "Missing 'url' in JSON"}), 400
+
+        video_url = data['url']
+        if 'youtube.com' not in video_url and 'youtu.be' not in video_url:
+            return jsonify({"error": "Invalid YouTube URL"}), 400
+
+        video_id = video_url.split('v=')[1].split('&')[0] if 'v=' in video_url else video_url.split('/')[-1]
         title = data.get('title', 'Manual Test')
-        
-        log(f"Manual post requested: {video_url}")
+
+        log(f"Manual post: {video_url}")
+
         transcript = get_transcript(video_id)
         if not transcript:
-            return jsonify({"error": "No transcript available"}), 400
-        
+            return jsonify({"error": "No transcript (video may lack captions)"}), 400
+
         summary = generate_summary(transcript, title, video_id)
         if not summary:
-            return jsonify({"error": "Summary generation failed"}), 500
-        
+            return jsonify({"error": "AI summary failed"}), 500
+
         link = post_comment(video_id, summary)
         if not link:
-            return jsonify({"error": "Posting failed"}), 500
-        
-        return jsonify({"success": True, "commentLink": link, "summary": summary})
-    except Exception as e:
-        log(f"Post-now error: {e}")
-        return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Failed to post comment"}), 500
 
+        return jsonify({
+            "success": True,
+            "commentLink": link,
+            "summary": summary
+        })
+
+    except Exception as e:
+        log(f"post-now error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # === API Endpoints ===
 @app.route('/status')
@@ -216,4 +226,3 @@ def logs():
 if __name__ == '__main__':
     threading.Thread(target=run_bot, daemon=True).start()
     app.run(host='0.0.0.0', port=8080)
-
