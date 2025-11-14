@@ -161,6 +161,35 @@ def run_bot():
                     post_comment(vid, summary)
                 time.sleep(30)
         time.sleep(CHECK_INTERVAL)
+@app.route('/post-now', methods=['POST'])
+def post_now():
+    try:
+        data = request.get_json()  # Safe JSON parse
+        video_url = data.get('url')
+        if not video_url or 'youtube.com' not in video_url:
+            return jsonify({"error": "Invalid URL"}), 400
+        
+        video_id = video_url.split('v=')[1].split('&')[0]
+        title = data.get('title', 'Manual Test')
+        
+        log(f"Manual post requested: {video_url}")
+        transcript = get_transcript(video_id)
+        if not transcript:
+            return jsonify({"error": "No transcript available"}), 400
+        
+        summary = generate_summary(transcript, title, video_id)
+        if not summary:
+            return jsonify({"error": "Summary generation failed"}), 500
+        
+        link = post_comment(video_id, summary)
+        if not link:
+            return jsonify({"error": "Posting failed"}), 500
+        
+        return jsonify({"success": True, "commentLink": link, "summary": summary})
+    except Exception as e:
+        log(f"Post-now error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 # === API Endpoints ===
 @app.route('/status')
@@ -188,25 +217,3 @@ if __name__ == '__main__':
     threading.Thread(target=run_bot, daemon=True).start()
     app.run(host='0.0.0.0', port=8080)
 
-
-@app.route('/post-now', methods=['POST'])
-def post_now():
-    data = request.json
-    video_url = data.get('url')
-    if not video_url or 'youtube.com' not in video_url:
-        return jsonify({"error": "Invalid URL"}), 
-        
-    video_id = video_url.split('v=')[1].split('&')[0]
-    title = data.get('title', 'Manual Test')
-    
-    log(f"Manual post requested: {video_url}")
-    transcript = get_transcript(video_id)
-    if not transcript:
-        return jsonify({"error": "No transcript"}), 400
-        
-    summary = generate_summary(transcript, title, video_id)
-    if not summary:
-        return jsonify({"error": "Summary failed"}), 500
-        
-    link = post_comment(video_id, summary)
-    return jsonify({"commentLink": link, "summary": summary})
